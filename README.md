@@ -324,7 +324,7 @@ $engine->sanitize(
 1. Fork the repository  
 2. Create a feature branch: `git checkout -b feat/my-sanitizer-rule`  
 3. Run: `kcode quality` — all 4 tools must pass  
-4. Submit a pull request against `develop`
+4. Submit a pull request against `main`
 
 ---
 

@@ -45,7 +45,7 @@
     "support": {
         "issues": "https://github.com/KaririCode-Framework/kariricode-sanitizer/issues",
         "source": "https://github.com/KaririCode-Framework/kariricode-sanitizer",
-        "docs": "https://github.com/KaririCode-Framework/kariricode-sanitizer/blob/develop/README.md",
+        "docs": "https://github.com/KaririCode-PHP/sanitizer/blob/main/README.md",
         "security": "https://github.com/KaririCode-Framework/kariricode-sanitizer/security/advisories/new",
         "forum": "https://github.com/orgs/KaririCode-Framework/discussions"
     },
