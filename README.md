@@ -1,367 +1,285 @@
 # KaririCode Sanitizer
 
-<div align="center">
+[![CI](https://github.com/KaririCode-PHP/sanitizer/actions/workflows/ci.yml/badge.svg)](https://github.com/KaririCode-PHP/sanitizer/actions/workflows/ci.yml)
+![PHP 8.4+](https://img.shields.io/badge/PHP-8.4%2B-777BB4)
+![ARFA 1.3 level 1](https://img.shields.io/badge/ARFA-1.3%20level%201-blue)
+![License MIT](https://img.shields.io/badge/license-MIT-green)
 
-[![CI](https://github.com/KaririCode-Framework/kariricode-sanitizer/actions/workflows/ci.yml/badge.svg)](https://github.com/KaririCode-Framework/kariricode-sanitizer/actions/workflows/ci.yml)
-[![PHP 8.4+](https://img.shields.io/badge/PHP-8.4%2B-777BB4?logo=php&logoColor=white)](https://www.php.net/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-22c55e.svg)](LICENSE)
-[![PHPStan Level 9](https://img.shields.io/badge/PHPStan-Level%209-4F46E5)](https://phpstan.org/)
-[![Psalm](https://img.shields.io/badge/Psalm-Level%201-4F46E5)](https://psalm.dev/)
-[![Tests](https://img.shields.io/badge/Tests-175%20passing-22c55e)](tests/)
-[![Coverage](https://img.shields.io/badge/Coverage-100%25-22c55e)](tests/)
-[![Rules](https://img.shields.io/badge/Rules-33-22c55e)](docs/spec/SPEC-002-rule-reference.md)
-[![ARFA](https://img.shields.io/badge/ARFA-1.3-F97316)](https://kariricode.org)
-[![KaririCode Framework](https://img.shields.io/badge/KaririCode-Framework-F97316)](https://kariricode.org)
+Rule-based data sanitization for PHP 8.4: 33 built-in rules — strings,
+HTML, numbers, types, dates, filters and Brazilian document formats,
+the alphanumeric CNPJ included — applied to arrays by a rule map or to
+readonly DTOs by `#[Sanitize]` attributes. Rules run in order, every
+change is recorded, nested fields stay nested, and a value a rule cannot
+use passes untouched for the validator to judge; a rule written down
+wrongly is the application's mistake and throws a coded exception.
+Part of the KaririCode Framework; Spec V4.3.3, ARFA 1.3 level 1.
 
-**Composable, rule-based data sanitization engine for PHP 8.4+.**  
-33 built-in rules · XSS prevention · #[Sanitize] attributes · zero dependencies.
+## 1. Features
 
-[Installation](#installation) · [Quick Start](#quick-start) · [Attribute API](#attribute-driven-dto-sanitization) · [All 33 Rules](#all-33-rules) · [CI Integration](#ci-integration) · [Architecture](#architecture)
+- **33 rules** in seven groups: string, HTML, numeric, type, date,
+  filter, Brazilian (SPEC-002).
+- **Chained rules, recorded changes** — each rule receives the previous
+  one's output; every change is a `FieldModification` (field, rule,
+  before, after) in an immutable result (ADR-002).
+- **Rule maps** — an alias (`'trim'`), a rule instance, or
+  `[alias or rule, parameters]`; fields by dotted path
+  (`'address.city'`), written back where they were read; absent fields
+  are not created.
+- **Attributes** — `#[Sanitize]` on a DTO, read through the
+  kariricode/contract `PropertyInspector` and written into a **copy**
+  through the `PropertyChangeApplier`, so readonly DTOs work and the
+  original is never modified; kariricode/property-inspector 3
+  implements both (ADR-003).
+- **Safe by construction** — `html_purify` decodes before it strips, so
+  encoded markup cannot come back as markup; `strip_tags` removes script
+  and style content; conversions never lose information; Unicode
+  direction overrides are removed (ADR-005, ADR-008).
+- **Strict parameters** — a missing length, a misspelled charset, a
+  pattern that does not compile throw `InvalidRuleException` with a SAN
+  code, whatever the input (ADR-004).
+- **Integrations** — a kariricode/contract `Processor` and `Sanitizer`
+  for pipelines, a `ServiceProvider` for containers, an observer that
+  receives start and completion events (ADR-006).
+- **No dependencies** beyond kariricode/contract and
+  kariricode/exception.
 
-</div>
-
----
-
-## The Problem
-
-User input arrives as raw strings — untrusted, inconsistent, and potentially malicious:
-
-```php
-// Raw input from request — dangers everywhere
-$email    = $_POST['email'];   // "  ALICE@EXAMPLE.COM  " — extra spaces, wrong case
-$bio      = $_POST['bio'];     // "<script>alert('XSS')</script>Hello!"
-$phone    = $_POST['phone'];   // "(11) 9 9999.9999" — inconsistent format
-$username = $_POST['username']; // "Alice O'Connor; DROP TABLE users; --"
-```
-
-## The Solution
-
-```php
-use KaririCode\Sanitizer\Provider\SanitizerServiceProvider;
-
-$engine = (new SanitizerServiceProvider())->createEngine();
-
-$result = $engine->sanitize(
-    data: ['email' => '  ALICE@EXAMPLE.COM  ', 'bio' => '<script>alert(1)</script>Hello!'],
-    rules: [
-        'email' => ['trim', 'lowercase'],
-        'bio'   => ['html.encode', ['truncate', ['max' => 200, 'suffix' => '…']]],
-    ],
-);
-
-// $result->get('email') === "alice@example.com"
-// $result->get('bio')   === "&lt;script&gt;alert(1)&lt;/script&gt;Hello!"
-```
-
----
-
-## Features
-
-- ✅ **33 built-in rules** across 7 categories (String, HTML, Numeric, Date, Filter, Type, Brazilian)
-- ✅ **XSS prevention** — `html.encode`, `strip_tags`, `remove_scripts` built-in
-- ✅ **Attribute-driven API** — annotate DTOs with `#[Sanitize]`, zero boilerplate
-- ✅ **Dot-notation paths** — sanitize nested fields like `address.city`
-- ✅ **Zero external dependencies** — only `kariricode/property-inspector` for reflection
-- ✅ **PHPStan Level 9 + Psalm Level 1** — full static-analysis compliance
-- ✅ **100% test coverage** — 175 tests, 100% Classes/Methods/Lines
-- ✅ **ARFA 1.3 compliant** — `final readonly` domain classes, immutable context
-
----
-
-## Requirements
-
-| Requirement | Version |
-|-------------|---------|
-| PHP | 8.4+ |
-| Composer | 2.x |
-| kariricode/property-inspector | ^2.0 |
-
----
-
-## Installation
+## 2. Installation
 
 ```bash
 composer require kariricode/sanitizer
+composer require kariricode/property-inspector   # only for #[Sanitize] on objects
 ```
 
----
+PHP 8.4 or later.
 
-## Quick Start
-
-### 1. Engine API
+## 3. Quick Start
 
 ```php
-use KaririCode\Sanitizer\Provider\SanitizerServiceProvider;
+<?php
 
-$engine = (new SanitizerServiceProvider())->createEngine();
+declare(strict_types=1);
+
+use KaririCode\Sanitizer\Core\SanitizerEngine;
+
+require __DIR__ . '/vendor/autoload.php';
+
+$engine = new SanitizerEngine();
 
 $result = $engine->sanitize(
-    data:  ['name' => '  WALMIR SILVA  ', 'bio' => '<b>Developer</b> & creator'],
-    rules: ['name' => ['trim', 'capitalize'], 'bio' => ['html.decode', 'trim']],
+    [
+        'email' => '  Ana.Silva@Example.COM ',
+        'name' => "  ana   maria\tsilva ",
+        'bio' => '<p>Dev &lt;script&gt;alert(1)&lt;/script&gt;no Cariri</p>',
+        'cnpj' => '12abc34501de35',
+        'age' => '42',
+        'address' => ['cep' => '63100000'],
+    ],
+    [
+        'email' => ['email_filter'],
+        'name' => ['normalize_whitespace', 'capitalize'],
+        'bio' => ['html_purify', ['truncate', ['max' => 140]]],
+        'cnpj' => ['format_cnpj'],
+        'age' => ['to_int'],
+        'address.cep' => ['format_cep'],
+        'phone' => ['digits_only'],
+    ],
 );
 
-echo $result->get('name'); // "Walmir Silva"
-echo $result->get('bio');  // "Developer & creator"
+echo json_encode($result->sanitized, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), PHP_EOL;
 ```
 
-### 2. Attribute API (DTO-driven)
+```json
+{
+    "email": "ana.silva@example.com",
+    "name": "Ana Maria Silva",
+    "bio": "Dev no Cariri",
+    "cnpj": "12.ABC.345/01DE-35",
+    "age": 42,
+    "address": {
+        "cep": "63100-000"
+    }
+}
+```
+
+The encoded script in `bio` is decoded and removed with its content;
+`phone` is not in the input, so it is not created.
+`$result->modifiedFields()` lists the six fields that changed, and
+`$result->modificationsFor('name')` the two steps of `name`.
+
+## 4. Rule Maps
+
+A rule map lists, per field, the rule definitions to apply in order:
+
+| Definition | Example |
+|---|---|
+| alias | `'trim'` |
+| rule instance | `new HtmlPurifyRule()` |
+| alias with parameters | `['truncate', ['max' => 140, 'suffix' => '…']]` |
+| rule with parameters | `[new ClampRule(), ['min' => 1, 'max' => 99]]` |
+
+Field names are dotted paths into nested arrays; a key that contains
+dots itself is matched first. Every definition is checked before the
+data is read, so a misspelled alias throws even for a field this input
+lacks.
+
+Register your own rules under an alias:
 
 ```php
-use KaririCode\Sanitizer\Attribute\Sanitize;
-use KaririCode\Sanitizer\Provider\SanitizerServiceProvider;
+use KaririCode\Sanitizer\Contract\SanitizationContext;
+use KaririCode\Sanitizer\Contract\SanitizationRule;
 
-final class UserRegistrationInput
+final readonly class CollapseDashesRule implements SanitizationRule
+{
+    public function sanitize(mixed $value, SanitizationContext $context): mixed
+    {
+        return is_string($value) ? preg_replace('/-{2,}/', '-', $value) ?? '' : $value;
+    }
+
+    public function name(): string
+    {
+        return 'app.collapse_dashes';
+    }
+}
+
+$engine->registry->register('collapse_dashes', new CollapseDashesRule());
+```
+
+## 5. The Rules
+
+| Group | Aliases |
+|---|---|
+| String | trim, lower_case, upper_case, capitalize, slug, truncate, normalize_whitespace, normalize_line_endings, pad, replace, regex_replace, strip_non_printable |
+| Html | strip_tags, html_encode, html_decode, html_purify, url_encode |
+| Numeric | to_int, to_float, clamp, round |
+| Type | to_bool, to_string, to_array |
+| Date | normalize_date, timestamp_to_date |
+| Filter | digits_only, alpha_only, alphanumeric_only, email_filter |
+| Brazilian | format_cpf, format_cnpj, format_cep |
+
+[SPEC-002](docs/spec/SPEC-002-rule-reference.md) lists each rule's
+parameters and output. Points worth knowing:
+
+- `html_purify` makes text out of HTML; its output still needs
+  `htmlspecialchars()` (or `html_encode`) where you write it into a
+  page. Rich text that must keep markup needs an HTML sanitizer library
+  (ADR-005).
+- `to_int` converts "42", 42.0 and "1e3" and leaves "12.9" alone; round
+  first if you mean to round (ADR-008).
+- `normalize_date` reads strictly: 31/02/2026 and "28/11/2026 " come back
+  unchanged instead of becoming another day.
+- `format_cnpj` keeps letters (IN RFB nº 2.229/2024); the formatters do
+  not check digits — validate with kariricode/validator.
+- `email_filter` keeps ASCII only, as FILTER_SANITIZE_EMAIL does.
+
+## 6. Attributes
+
+```php
+use KaririCode\PropertyInspector\Core\ReflectionChangeApplier;
+use KaririCode\PropertyInspector\Core\ReflectionPropertyInspector;
+use KaririCode\Sanitizer\Attribute\Sanitize;
+use KaririCode\Sanitizer\Core\AttributeSanitizer;
+
+final readonly class SignUp
 {
     public function __construct(
-        #[Sanitize('trim', 'lowercase')]
+        #[Sanitize('trim', 'lower_case')]
         public string $email,
-
-        #[Sanitize('trim', 'html.encode')]
-        public string $bio,
-
-        #[Sanitize('trim', 'remove_scripts')]
-        public string $username,
+        #[Sanitize('normalize_whitespace', 'capitalize')]
+        public string $name,
+        #[Sanitize('html_purify', ['truncate', ['max' => 160]])]
+        public string $bio = '',
+        #[Sanitize('format_cnpj')]
+        public ?string $cnpj = null,
     ) {}
 }
 
-$provider  = new SanitizerServiceProvider();
-$sanitizer = $provider->createAttributeSanitizer($provider->createConfiguration());
+$sanitizer = new AttributeSanitizer($engine, new ReflectionPropertyInspector(), new ReflectionChangeApplier());
 
-$input  = new UserRegistrationInput('  ALICE@EXAMPLE.COM  ', '<b>Hi!</b>', '<script>evil</script>Alice');
-$result = $sanitizer->sanitize($input);
-// ['email' => 'alice@example.com', 'bio' => '&lt;b&gt;Hi!&lt;/b&gt;', 'username' => 'Alice']
+$sanitized = $sanitizer->sanitize($signUp);
+$clean = $sanitized->object;      // a new SignUp; $signUp is unchanged
+$sanitized->result;               // the SanitizationResult, with the record of changes
 ```
 
----
+`#[Sanitize]` takes positional definitions only; named arguments throw.
+Only properties whose value changed are written into the copy; when
+nothing changed, `$sanitized->object` is the original instance. The
+copy is built without running the constructor, so validate the copy.
 
-## Real-World Use Cases
+## 7. Results
 
-### Use Case 1 — User Registration Form
+`SanitizationResult` holds `original`, `sanitized` and `modifications`:
+`get('address.cep')`, `wasModified()`, `isFieldModified()`,
+`modifiedFields()`, `modificationsFor()`, `modificationCount()`.
 
 ```php
-final class RegistrationInput
-{
-    #[Sanitize('trim', 'lowercase')]
-    public string $email;
-
-    #[Sanitize('trim', ['min_length' => ['min' => 8]], 'capitalize')]
-    public string $name;
-
-    #[Sanitize('trim', 'html.encode', ['truncate', ['max' => 500]])]
-    public string $bio;
-
-    #[Sanitize('remove_non_numeric')]  // strips dashes, spaces, brackets
-    public string $phone;
-}
+$engine = new SanitizerEngine(configuration: new SanitizerConfiguration(trackModifications: false));
 ```
 
-### Use Case 2 — API Payload Normalisation (Nested Fields)
+Without tracking, values are sanitized the same and no
+`FieldModification` is kept — useful for bulk imports of large values.
+
+## 8. Exceptions
+
+Input never makes a rule throw. Exceptions are for mistakes in the
+rules and for the processor's input type; every exception implements
+`SanitizerException` and carries a code from SAN 3300–3399:
+
+| Code | Exception | Family | Meaning |
+|---|---|---|---|
+| 3301–3306 | InvalidRuleException | Configuration | duplicate or unknown alias, malformed definition, missing or invalid parameter, named attribute arguments |
+| 3320 | ConfigurationException | Configuration | a container binding of the wrong type |
+| 3340 | UnsupportedInputException | Validation | the processor received something other than an array |
+
+## 9. Integrations
 
 ```php
-$engine->sanitize(
-    data: ['user' => ['name' => '  Alice  ', 'email' => 'ALICE@EXAMPLE.COM']],
-    rules: [
-        'user.name'  => ['trim', 'capitalize'],
-        'user.email' => ['trim', 'lowercase'],
-    ],
-);
+use KaririCode\ProcessorPipeline\Pipeline\Pipeline;
+use KaririCode\Validator\Integration\ValidationProcessor;
+
+// kariricode/processor-pipeline 2, or anything that takes a contract Processor:
+// clean first, then validate the clean value
+$pipeline = new Pipeline([
+    new SanitizationProcessor($engine, ['email' => ['trim', 'lower_case']]),
+    new ValidationProcessor($validator, ['email' => ['required', 'email']]),
+]);
+$clean = $pipeline->process(['email' => '  Ana@Example.COM ']);   // ['email' => 'ana@example.com']
+
+// a kariricode/contract container
+(new SanitizerServiceProvider())->register($container);
+
+// events, for logs and metrics
+$engine = new SanitizerEngine(observer: static fn (object $event) => $dispatcher->dispatch($event));
 ```
 
-### Use Case 3 — CMS Rich-Text Sanitization
+The processor returns the sanitized array; in a processor-pipeline, a
+stage that throws reaches the caller as `PipelineExecutionException`
+with the stage's exception as `getPrevious()`. The provider binds the
+registry, the engine and the `AttributeSanitizer` (bind a
+`PropertyInspector` and a `PropertyChangeApplier` for it). The observer
+receives a `SanitizationStartedEvent` (field paths) and a
+`SanitizationCompletedEvent` (result, duration in ms); the result holds
+the input, so redact it before logging.
 
-```php
-$engine->sanitize(
-    data: ['content' => $htmlFromEditor],
-    rules: [
-        'content' => [
-            ['allowed_tags', ['tags' => '<p><br><strong><em><ul><ol><li>']],
-            'remove_scripts',
-            'normalize_whitespace',
-        ],
-    ],
-);
-```
+## 10. Security
 
-### Use Case 4 — Brazilian Document Formatting
+Sanitizing is not validating: clean first, then validate the clean
+value, and encode at output for the context you write into. See
+[SECURITY.md](SECURITY.md) for the threat model and the ASVS 5.0
+mapping.
 
-```php
-$engine->sanitize(
-    data:  ['cpf' => '123.456.789-01', 'cnpj' => '12.345.678/0001-99'],
-    rules: ['cpf' => ['remove_non_numeric'], 'cnpj' => ['remove_non_numeric']],
-);
-// Strips formatting → pure digits for database storage
-```
+## 11. Architecture and Quality
 
----
+| Gate | Result |
+|---|---|
+| Tests | unit, integration and conformance suites; 100 % of lines covered |
+| Static analysis | PHPStan level max (strict and PHPUnit rules), Psalm error level 1 |
+| Mutation testing | MSI recorded in [QD-V433](docs/quality/QD-V433-COMPLIANCE.md) |
+| Complexity | cyclomatic ≤ 10, nesting ≤ 3, parameters ≤ 4, cognitive ≤ 15 |
 
-## All 33 Rules
+The gates run through KaririCode Devkit (`kcode`); see
+[CONTRIBUTING.md](CONTRIBUTING.md). Design decisions are in
+[docs/adr](docs/adr), the specification in [docs/spec](docs/spec).
 
-### String
-| Alias | Description |
-|-------|-------------|
-| `trim` | Remove surrounding whitespace |
-| `lowercase` / `uppercase` | Case normalisation |
-| `capitalize` | Capitalise first letter of each word |
-| `slug` | Convert to URL-safe slug |
-| `remove_whitespace` | Remove all whitespace |
-| `normalize_whitespace` | Collapse multiple spaces |
-| `remove_special_chars` | Strip non-alphanumeric |
-| `remove_non_numeric` | Digits only |
-| `remove_non_alpha` | Letters only |
-| `truncate` | Truncate with suffix · `max`, `suffix` |
-| `pad` | Pad string · `length`, `pad_char`, `side` |
-| `repeat` | Repeat string · `times` |
-| `reverse` | Reverse characters |
-| `mask` | Mask characters · `start`, `end`, `char` |
+## 12. License
 
-### HTML
-| Alias | Description |
-|-------|-------------|
-| `html.encode` | Encode HTML entities |
-| `html.decode` | Decode HTML entities |
-| `strip_tags` | Remove HTML/PHP tags |
-| `allowed_tags` | Remove all tags except allowed · `tags: string` |
-| `remove_scripts` | Remove `<script>` blocks |
-
-### Numeric
-| Alias | Parameters | Description |
-|-------|-----------|-------------|
-| `round` | `precision: int` | Round to decimal places |
-| `abs` | — | Absolute value |
-| `clamp` | `min`, `max` | Clamp to range |
-| `number_format` | `decimals`, `dec_sep`, `thou_sep` | Format number |
-
-### Date
-| Alias | Parameters | Description |
-|-------|-----------|-------------|
-| `date.format` | `from`, `to` | Re-format date string |
-| `date.to_iso` | — | Any date → ISO 8601 |
-
-### Filter
-| Alias | Description |
-|-------|-------------|
-| `filter.email` | Remove invalid email characters |
-| `filter.url` | Safe URL characters only |
-| `filter.filename` | Remove path-traversal characters |
-
-### Type
-| Alias | Description |
-|-------|-------------|
-| `to_int` | Cast to integer |
-| `to_float` | Cast to float |
-| `to_bool` | Cast to boolean |
-| `to_string` | Cast to string |
-
-### Brazilian
-| Alias | Description |
-|-------|-------------|
-| `br.cpf` | Strip formatting from CPF |
-| `br.cnpj` | Strip formatting from CNPJ |
-| `br.cep` | Strip formatting from CEP |
-
----
-
-## CI Integration
-
-```yaml
-# .github/workflows/ci.yml (excerpt)
-- name: Run quality pipeline
-  run: |
-    kcode init
-        .kcode/phpunit.xml.dist
-    kcode quality
-```
-
-| Tool | Level | Result |
-|------|-------|--------|
-| `php-cs-fixer` | KaririCode standard | ✅ |
-| `phpstan` | Level 9 | ✅ |
-| `psalm` | Level 1 | ✅ |
-| `phpunit` + `pcov` | 100% coverage | ✅ |
-
----
-
-## Architecture
-
-### Design Decisions
-
-| Decision | Rationale | ADR |
-|----------|-----------|-----|
-| Alias-based in-memory registry | Decouples engine from rules; custom rules register via alias | [ADR-001](docs/adr/ADR-001-rule-registry-pattern.md) |
-| `PropertyInspector` for `#[Sanitize]` | Reflection caching; zero manual ReflectionClass loops | [ADR-002](docs/adr/ADR-002-property-inspector-integration.md) |
-| `SanitizationContext` immutability | `final readonly` + builder pattern; prevents cross-field pollution | [ADR-003](docs/adr/ADR-003-sanitization-context-immutability.md) |
-| `final readonly` on all rules | ARFA Principle 11 — immutable data path | [SPEC-001](docs/spec/SPEC-001-sanitizer-engine.md) |
-
-### Project Stats
-
-| Metric | Value |
-|--------|-------|
-| Source files | 40+ |
-| Rule classes | 33 |
-| External dependencies | 1 (`kariricode/property-inspector`) |
-| PHPUnit tests | 175 |
-| Line coverage | 100% |
-| PHPStan level | 9 (0 errors) |
-| Psalm level | 1 (0 errors) |
-
----
-
-## Ecosystem Integration
-
-| Library | Integration |
-|---------|-------------|
-| [kariricode/validator](https://github.com/KaririCode-Framework/kariricode-validator) | Sanitize input before validation in DPO pipeline |
-| [kariricode/transformer](https://github.com/KaririCode-Framework/kariricode-transformer) | Sanitize → Transform → Persist pipeline |
-| [kariricode/normalizer](https://github.com/KaririCode-Framework/kariricode-normalizer) | Sanitize, then normalize to portable format |
-| [kariricode/property-inspector](https://github.com/KaririCode-Framework/kariricode-property-inspector) | Reflection caching for `#[Sanitize]` attribute scanning |
-| [kariricode/devkit](https://github.com/KaririCode-PHP/devkit) | `kcode quality` CI pipeline, PHPStan/Psalm/cs-fixer unified runner |
-
----
-
-## Development
-
-This package keeps no QA tools in `require-dev`. [KaririCode Devkit](https://github.com/KaririCode-PHP/devkit) (`kcode`) installs PHPUnit, PHPStan, Psalm, PHP-CS-Fixer and Rector into `.kcode/` (git-ignored) the first time a command needs them.
-
-Install `kcode` once (PHP 8.4+):
-
-```bash
-wget https://github.com/KaririCode-PHP/devkit/releases/latest/download/kcode.phar
-chmod +x kcode.phar
-sudo mv kcode.phar /usr/local/bin/kcode
-```
-
-From the repository root:
-
-```bash
-composer install          # runtime dependencies only
-kcode init                # generate .kcode/ and install the toolchain (first run)
-kcode test                # PHPUnit (--coverage, --suite=Unit, any PHPUnit option)
-kcode analyse             # PHPStan, then Psalm
-kcode cs:fix              # apply the code style (--check reports only)
-kcode quality             # the CI gate: cs-fixer, PHPStan, Psalm, PHPUnit
-kcode quality --docker    # the same gate inside the kcode PHP container
-```
-
-Project overrides go in `devkit.php` (`kcode init --config` writes a template); run `kcode init` after editing it. `kcode clean --all` removes `.kcode/`.
-
----
-
-## Contributing
-
-1. Fork the repository  
-2. Create a feature branch: `git checkout -b feat/my-sanitizer-rule`  
-3. Run: `kcode quality` — all 4 tools must pass  
-4. Submit a pull request against `main`
-
----
-
-<div align="center">
-
-**Part of the [KaririCode Framework](https://kariricode.org) ecosystem.**
-
-[![GitHub](https://img.shields.io/badge/GitHub-KaririCode-181717?logo=github)](https://github.com/KaririCode-Framework)
-[![Packagist](https://img.shields.io/badge/Packagist-kariricode%2Fsanitizer-F28D1A?logo=packagist&logoColor=white)](https://packagist.org/packages/kariricode/sanitizer)
-
-*Built with ❤️ by [Walmir Silva](https://github.com/walmir-silva) · [kariricode.org](https://kariricode.org)*
-
-</div>
+MIT — see [LICENSE](LICENSE).
