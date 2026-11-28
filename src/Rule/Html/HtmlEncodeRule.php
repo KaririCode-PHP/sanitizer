@@ -6,37 +6,45 @@ namespace KaririCode\Sanitizer\Rule\Html;
 
 use KaririCode\Sanitizer\Contract\SanitizationContext;
 use KaririCode\Sanitizer\Contract\SanitizationRule;
+use KaririCode\Sanitizer\Core\HtmlCharset;
+
+// ── Rule: HtmlEncodeRule ─────────────────────────────────────────────
+// Encodes the HTML special characters of a string.
+// ─────────────────────────────────────────────────────────────────────
 
 /**
- * Encodes HTML special characters for XSS prevention.
+ * Escapes &, <, >, " and ' with htmlspecialchars(), the flags given
+ * (ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5 unless set) and the
+ * 'encoding' (UTF-8 unless set); 'double_encode' false leaves existing
+ * entities alone. Encode at output time when you can: a value encoded
+ * at input and again at output shows the entities.
  *
- * Parameters: flags (int, default ENT_QUOTES|ENT_SUBSTITUTE), encoding (string, default 'UTF-8').
+ * Preconditions: 'flags' is an integer; 'encoding' is a charset htmlspecialchars() supports; 'double_encode' is a boolean.
  *
- * @author  Walmir Silva <walmir.silva@kariricode.org>
+ * Thread-safety: stateless.
  *
- * @since   3.1.0 ARFA 1.3
+ * Side effects: none.
+ *
+ * Example:
+ *
+ *     ['comment' => ['html_encode']]
+ *
+ * References: PHP htmlspecialchars(); OWASP XSS Prevention Cheat Sheet, rule 1; ADR-005; SPEC-002 §2.
  */
 final readonly class HtmlEncodeRule implements SanitizationRule
 {
     #[\Override]
     public function sanitize(mixed $value, SanitizationContext $context): mixed
     {
-        if (! \is_string($value)) {
-            return $value;
-        }
+        $flags = $context->intParameter('flags', ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5);
+        $encoding = HtmlCharset::of($context);
+        $doubleEncode = $context->boolParameter('double_encode', true);
 
-        $flagsRaw = $context->getParameter('flags', ENT_QUOTES | ENT_SUBSTITUTE);
-        $flags = \is_int($flagsRaw) ? $flagsRaw : ENT_QUOTES | ENT_SUBSTITUTE;
-        $encodingRaw = $context->getParameter('encoding', 'UTF-8');
-        $encoding = \is_string($encodingRaw) ? $encodingRaw : 'UTF-8';
-        $doubleEncodeRaw = $context->getParameter('double_encode', true);
-        $doubleEncode = \is_bool($doubleEncodeRaw) ? $doubleEncodeRaw : (bool) $doubleEncodeRaw;
-
-        return htmlspecialchars($value, $flags, $encoding, $doubleEncode);
+        return is_string($value) ? htmlspecialchars(string: $value, flags: $flags, encoding: $encoding, double_encode: $doubleEncode) : $value;
     }
 
     #[\Override]
-    public function getName(): string
+    public function name(): string
     {
         return 'html.encode';
     }

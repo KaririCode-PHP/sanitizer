@@ -7,37 +7,40 @@ namespace KaririCode\Sanitizer\Rule\Brazilian;
 use KaririCode\Sanitizer\Contract\SanitizationContext;
 use KaririCode\Sanitizer\Contract\SanitizationRule;
 
+// ── Rule: FormatCnpjRule ─────────────────────────────────────────────
+// Writes a numeric or alphanumeric CNPJ in its formatted form.
+// ─────────────────────────────────────────────────────────────────────
+
 /**
- * Formats a CNPJ number: 11222333000181 → 11.222.333/0001-81.
+ * Keeps the letters and digits of the string, upper-cases the letters,
+ * and when they form a CNPJ shape (12 characters A–Z or 0–9, then 2
+ * digits) writes them as AA.AAA.AAA/AAAA-00; other strings are returned
+ * unchanged. It does not check the digits: validate with the cnpj rule.
  *
- * @author  Walmir Silva <walmir.silva@kariricode.org>
+ * Preconditions: none; other types are returned unchanged.
  *
- * @since   3.1.0 ARFA 1.3
+ * Thread-safety: stateless.
+ *
+ * Side effects: none.
+ *
+ * Example:
+ *
+ *     ['cnpj' => ['format_cnpj']]; // '12abc34501de35' → '12.ABC.345/01DE-35'
+ *
+ * References: IN RFB nº 2.229/2024 (alphanumeric CNPJ); ADR-008; SPEC-002 §7.
  */
 final readonly class FormatCnpjRule implements SanitizationRule
 {
     #[\Override]
     public function sanitize(mixed $value, SanitizationContext $context): mixed
     {
-        if (! \is_string($value)) {
-            return $value;
-        }
+        $characters = is_string($value) ? strtoupper(preg_replace(pattern: '/[^0-9A-Za-z]/', replacement: '', subject: $value) ?? '') : '';
 
-        $digits = preg_replace('/\D/', '', $value) ?? '';
-
-        if (14 !== \strlen($digits)) {
-            return $value;
-        }
-
-        return substr($digits, 0, 2) . '.'
-            . substr($digits, 2, 3) . '.'
-            . substr($digits, 5, 3) . '/'
-            . substr($digits, 8, 4) . '-'
-            . substr($digits, 12, 2);
+        return preg_match('/\A[0-9A-Z]{12}\d{2}\z/', $characters) === 1 ? vsprintf('%s%s.%s%s%s.%s%s%s/%s%s%s%s-%s%s', str_split($characters)) : $value;
     }
 
     #[\Override]
-    public function getName(): string
+    public function name(): string
     {
         return 'brazilian.format_cnpj';
     }

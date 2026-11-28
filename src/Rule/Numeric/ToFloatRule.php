@@ -6,32 +6,40 @@ namespace KaririCode\Sanitizer\Rule\Numeric;
 
 use KaririCode\Sanitizer\Contract\SanitizationContext;
 use KaririCode\Sanitizer\Contract\SanitizationRule;
+use KaririCode\Sanitizer\Core\NumericValue;
+
+// ── Rule: ToFloatRule ────────────────────────────────────────────────
+// Converts a number to a float.
+// ─────────────────────────────────────────────────────────────────────
 
 /**
- * Casts a value to float. Non-castable values return as-is.
+ * Converts integers, finite floats and numeric strings to float.
+ * Booleans, INF, NAN and non-numbers are returned unchanged.
  *
- * @author  Walmir Silva <walmir.silva@kariricode.org>
+ * Preconditions: none.
  *
- * @since   3.1.0 ARFA 1.3
+ * Thread-safety: stateless.
+ *
+ * Side effects: none.
+ *
+ * Example:
+ *
+ *     ['price' => ['to_float']]
+ *
+ * References: SPEC-002 §3.
  */
 final readonly class ToFloatRule implements SanitizationRule
 {
     #[\Override]
     public function sanitize(mixed $value, SanitizationContext $context): mixed
     {
-        if (\is_float($value)) {
-            return $value;
-        }
+        $number = NumericValue::of($value);
 
-        if (is_numeric($value)) {
-            return (float) $value;
-        }
-
-        return $value;
+        return $number === null ? $value : (float) $number;
     }
 
     #[\Override]
-    public function getName(): string
+    public function name(): string
     {
         return 'numeric.to_float';
     }

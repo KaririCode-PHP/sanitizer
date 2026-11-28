@@ -7,27 +7,36 @@ namespace KaririCode\Sanitizer\Rule\Filter;
 use KaririCode\Sanitizer\Contract\SanitizationContext;
 use KaririCode\Sanitizer\Contract\SanitizationRule;
 
+// ── Rule: AlphaOnlyRule ──────────────────────────────────────────────
+// Keeps only the letters of a string, in any script.
+// ─────────────────────────────────────────────────────────────────────
+
 /**
- * Strips all non-letter characters (Unicode-aware via \pL).
+ * Removes every character that is not a Unicode letter. Invalid UTF-8
+ * bytes are removed too.
  *
- * @author  Walmir Silva <walmir.silva@kariricode.org>
+ * Preconditions: none; other types are returned unchanged.
  *
- * @since   3.1.0 ARFA 1.3
+ * Thread-safety: stateless.
+ *
+ * Side effects: none.
+ *
+ * Example:
+ *
+ *     ['name' => ['alpha_only']]
+ *
+ * References: Unicode TR #18 (property L); SPEC-002 §6.
  */
 final readonly class AlphaOnlyRule implements SanitizationRule
 {
     #[\Override]
     public function sanitize(mixed $value, SanitizationContext $context): mixed
     {
-        if (! \is_string($value)) {
-            return $value;
-        }
-
-        return preg_replace('/[^\pL]/u', '', $value) ?? $value;
+        return is_string($value) ? preg_replace(pattern: '/[^\pL]/u', replacement: '', subject: mb_scrub($value, 'UTF-8')) ?? '' : $value;
     }
 
     #[\Override]
-    public function getName(): string
+    public function name(): string
     {
         return 'filter.alpha_only';
     }

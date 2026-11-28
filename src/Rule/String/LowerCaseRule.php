@@ -7,23 +7,35 @@ namespace KaririCode\Sanitizer\Rule\String;
 use KaririCode\Sanitizer\Contract\SanitizationContext;
 use KaririCode\Sanitizer\Contract\SanitizationRule;
 
+// ── Rule: LowerCaseRule ──────────────────────────────────────────────
+// Converts a string to lower case, in any script.
+// ─────────────────────────────────────────────────────────────────────
+
 /**
- * Converts a string to lowercase (mb-safe, UTF-8).
+ * Lower-cases with the Unicode case mapping (mb_strtolower, UTF-8).
  *
- * @author  Walmir Silva <walmir.silva@kariricode.org>
+ * Preconditions: none; other types are returned unchanged.
  *
- * @since   3.1.0 ARFA 1.3
+ * Thread-safety: stateless.
+ *
+ * Side effects: none.
+ *
+ * Example:
+ *
+ *     ['email' => ['lower_case']]
+ *
+ * References: Unicode case mapping; SPEC-002 §1.
  */
 final readonly class LowerCaseRule implements SanitizationRule
 {
     #[\Override]
     public function sanitize(mixed $value, SanitizationContext $context): mixed
     {
-        return \is_string($value) ? mb_strtolower($value, 'UTF-8') : $value;
+        return is_string($value) ? mb_strtolower($value, 'UTF-8') : $value;
     }
 
     #[\Override]
-    public function getName(): string
+    public function name(): string
     {
         return 'string.lower_case';
     }

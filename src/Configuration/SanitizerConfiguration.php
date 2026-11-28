@@ -4,20 +4,31 @@ declare(strict_types=1);
 
 namespace KaririCode\Sanitizer\Configuration;
 
+// ── Configuration: SanitizerConfiguration ────────────────────────────
+// Whether the engine records the changes the rules make.
+// ─────────────────────────────────────────────────────────────────────
+
 /**
- * Immutable sanitizer engine configuration.
+ * Turns the record of changes on (the default) or off. Without it, the
+ * result still holds the input and the sanitized copy; only the list of
+ * FieldModification entries stays empty, which saves memory on large
+ * inputs.
  *
- * @author  Walmir Silva <walmir.silva@kariricode.org>
+ * Preconditions: none.
  *
- * @since   3.1.0 ARFA 1.3
+ * Thread-safety: immutable.
+ *
+ * Side effects: none.
+ *
+ * Example:
+ *
+ *     new SanitizerEngine(configuration: new SanitizerConfiguration(trackModifications: false));
+ *
+ * References: ADR-002; SPEC-001 §8.
  */
 final readonly class SanitizerConfiguration
 {
     public function __construct(
-        /** Track which rules modified each field. */
         public bool $trackModifications = true,
-        /** Preserve original data in result for diff. */
-        public bool $preserveOriginal = true,
-    ) {
-    }
+    ) {}
 }

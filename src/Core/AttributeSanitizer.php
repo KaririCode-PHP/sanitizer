@@ -4,47 +4,64 @@ declare(strict_types=1);
 
 namespace KaririCode\Sanitizer\Core;
 
-use KaririCode\PropertyInspector\AttributeAnalyzer;
-use KaririCode\PropertyInspector\Utility\PropertyInspector;
+use KaririCode\Contract\Inspection\PropertyChangeApplier;
+use KaririCode\Contract\Inspection\PropertyInspector;
 use KaririCode\Sanitizer\Attribute\Sanitize;
-use KaririCode\Sanitizer\Result\SanitizationResult;
+use KaririCode\Sanitizer\Result\SanitizedObject;
+
+// ── Core: AttributeSanitizer ─────────────────────────────────────────
+// Sanitizes an object by the #[Sanitize] attributes on its properties.
+// ─────────────────────────────────────────────────────────────────────
 
 /**
- * Sanitizes objects by reading #[Sanitize] attributes from properties.
+ * Reads an object's #[Sanitize] attributes through a kariricode/contract
+ * PropertyInspector, sanitizes the property values with the engine, and
+ * writes the changed values to a copy through a PropertyChangeApplier,
+ * so readonly DTOs work (kariricode/property-inspector 3 implements
+ * both). The object passed in is never modified.
  *
- * Uses kariricode/property-inspector for reflection caching and
- * attribute scanning — eliminates manual ReflectionClass loops.
+ * Preconditions: the inspector decides what an unreadable property means;
+ * kariricode/property-inspector's ReflectionPropertyInspector throws for
+ * an uninitialized one.
  *
- * @author  Walmir Silva <walmir.silva@kariricode.org>
+ * Thread-safety: immutable; one AttributeRules per call.
  *
- * @since   3.2.0 ARFA 1.3
+ * Side effects: none beyond the inspector's reads, the applier's copy and
+ * the engine's observer.
+ *
+ * Example:
+ *
+ *     $sanitizer = new AttributeSanitizer(new SanitizerEngine(), new ReflectionPropertyInspector(), new ReflectionChangeApplier());
+ *     $clean = $sanitizer->sanitize($signUp)->object;
+ *
+ * References: kariricode/property-inspector ADR-006, ADR-008 and ADR-009; ADR-003.
  */
 final readonly class AttributeSanitizer
 {
-    private PropertyInspector $inspector;
+    public function __construct(
+        private SanitizerEngine $engine,
+        private PropertyInspector $inspector,
+        private PropertyChangeApplier $applier,
+    ) {}
 
-    public function __construct(private SanitizerEngine $engine)
+    public function sanitize(object $object): SanitizedObject
     {
-        $this->inspector = new PropertyInspector(
-            new AttributeAnalyzer(Sanitize::class),
-        );
-    }
+        $rules = new AttributeRules();
+        $this->inspector->inspect(object: $object, attributeClass: Sanitize::class, handler: $rules);
+        $values = $rules->values();
+        $result = $this->engine->sanitize($values, $rules->fieldRules());
+        $changes = [];
 
-    public function sanitize(object $object): SanitizationResult
-    {
-        $handler = new SanitizeAttributeHandler();
+        /** @var mixed $original */
+        foreach ($values as $property => $original) {
+            /** @var mixed $value */
+            $value = $result->get($property);
 
-        /** @var SanitizeAttributeHandler $handler */
-        $handler = $this->inspector->inspect($object, $handler);
+            if ($value !== $original) {
+                $changes += [$property => $value];
+            }
+        }
 
-        $result = $this->engine->sanitize(
-            $handler->getProcessedPropertyValues(),
-            $handler->getFieldRules(),
-        );
-
-        $handler->setProcessedValues($result->getSanitizedData());
-        $handler->applyChanges($object);
-
-        return $result;
+        return new SanitizedObject(object: $changes === [] ? $object : $this->applier->applyChanges($object, $changes), result: $result);
     }
 }

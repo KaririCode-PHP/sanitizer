@@ -6,32 +6,46 @@ namespace KaririCode\Sanitizer\Rule\Numeric;
 
 use KaririCode\Sanitizer\Contract\SanitizationContext;
 use KaririCode\Sanitizer\Contract\SanitizationRule;
+use KaririCode\Sanitizer\Core\NumericValue;
+
+// ── Rule: ToIntRule ──────────────────────────────────────────────────
+// Converts a number to an integer when nothing is lost.
+// ─────────────────────────────────────────────────────────────────────
 
 /**
- * Casts a value to integer. Non-castable values return 0.
+ * Converts integral numbers ("42", 42.0, "1e3") to int. Fractions
+ * ("12.5"), values beyond the integer range and non-numbers are returned
+ * unchanged, so a validation rule can still reject them instead of the
+ * sanitizer rounding them silently.
  *
- * @author  Walmir Silva <walmir.silva@kariricode.org>
+ * Preconditions: none.
  *
- * @since   3.1.0 ARFA 1.3
+ * Thread-safety: stateless.
+ *
+ * Side effects: none.
+ *
+ * Example:
+ *
+ *     ['quantity' => ['trim', 'to_int']]
+ *
+ * References: ADR-008; SPEC-002 §3.
  */
 final readonly class ToIntRule implements SanitizationRule
 {
     #[\Override]
     public function sanitize(mixed $value, SanitizationContext $context): mixed
     {
-        if (\is_int($value)) {
-            return $value;
+        $number = NumericValue::of($value);
+
+        if (is_float($number) && fmod($number, 1.0) === 0.0 && $number >= -9.2233720368547758E18 && $number < 9.2233720368547758E18) {
+            return (int) $number;
         }
 
-        if (is_numeric($value)) {
-            return (int) $value;
-        }
-
-        return $value;
+        return is_int($number) ? $number : $value;
     }
 
     #[\Override]
-    public function getName(): string
+    public function name(): string
     {
         return 'numeric.to_int';
     }

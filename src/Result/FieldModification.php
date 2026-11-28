@@ -4,12 +4,29 @@ declare(strict_types=1);
 
 namespace KaririCode\Sanitizer\Result;
 
+// ── Result: FieldModification ────────────────────────────────────────
+// One change a rule made to one field.
+// ─────────────────────────────────────────────────────────────────────
+
 /**
- * Records a single modification applied to a field.
+ * Records that a rule changed the value of a field: the field as written
+ * in the rule map, the rule's name, and the value before and after.
+ * Rules that leave a value as it was record nothing.
  *
- * @author  Walmir Silva <walmir.silva@kariricode.org>
+ * Preconditions: built by the engine when modification tracking is on.
  *
- * @since   3.1.0 ARFA 1.3
+ * Thread-safety: immutable.
+ *
+ * Side effects: none; before and after hold input values, so do not log
+ * them where the input itself may not go.
+ *
+ * Example:
+ *
+ *     $change->field;    // 'email'
+ *     $change->ruleName; // 'string.trim'
+ *     $change->before;   // ' ana@example.com '
+ *
+ * References: ADR-002; SPEC-001 §6.
  */
 final readonly class FieldModification
 {
@@ -18,11 +35,5 @@ final readonly class FieldModification
         public string $ruleName,
         public mixed $before,
         public mixed $after,
-    ) {
-    }
-
-    public function wasModified(): bool
-    {
-        return $this->before !== $this->after;
-    }
+    ) {}
 }

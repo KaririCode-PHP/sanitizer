@@ -4,116 +4,79 @@ declare(strict_types=1);
 
 namespace KaririCode\Sanitizer\Result;
 
-/**
- * Result of a sanitization pass — contains sanitized data and modification log.
- *
- * @author  Walmir Silva <walmir.silva@kariricode.org>
- *
- * @since   3.1.0 ARFA 1.3
- */
-final class SanitizationResult
-{
-    /** @var list<FieldModification> */
-    private array $modifications = [];
+use KaririCode\Sanitizer\Core\DataPath;
 
+// ── Result: SanitizationResult ───────────────────────────────────────
+// The input, its sanitized copy and every change between them.
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Holds the input as it came, the sanitized copy with the same shape, and
+ * the changes the rules made in order. Fields read by dotted path.
+ * modifiedFields(), modificationsFor() and modificationCount() read the
+ * record of changes, which is empty when tracking is off; wasModified()
+ * and isFieldModified() compare the data itself.
+ *
+ * Preconditions: none.
+ *
+ * Thread-safety: immutable.
+ *
+ * Side effects: none.
+ *
+ * Example:
+ *
+ *     $result = $engine->sanitize(['email' => ' Ana@Example.com '], ['email' => ['trim', 'lower_case']]);
+ *     $result->get('email');           // 'ana@example.com'
+ *     $result->modificationsFor('email'); // trim, then lower_case
+ *
+ * References: ADR-002; SPEC-001 §6.
+ */
+final readonly class SanitizationResult
+{
     /**
-     * @param array<string, mixed> $originalData
-     * @param array<string, mixed> $sanitizedData
+     * @param array<array-key, mixed> $original
+     * @param array<array-key, mixed> $sanitized
+     * @param list<FieldModification> $modifications
      */
     public function __construct(
-        private readonly array $originalData,
-        private array $sanitizedData,
-    ) {
-    }
-
-    /** @return array<string, mixed> */
-    public function getOriginalData(): array
-    {
-        return $this->originalData;
-    }
-
-    /** @return array<string, mixed> */
-    public function getSanitizedData(): array
-    {
-        return $this->sanitizedData;
-    }
+        public array $original,
+        public array $sanitized,
+        public array $modifications = [],
+    ) {}
 
     public function get(string $field): mixed
     {
-        return $this->sanitizedData[$field] ?? null;
+        return DataPath::value($this->sanitized, $field);
     }
 
     public function wasModified(): bool
     {
-        return $this->originalData !== $this->sanitizedData;
+        return $this->original !== $this->sanitized;
     }
 
     public function isFieldModified(string $field): bool
     {
-        if (! \array_key_exists($field, $this->originalData)) {
-            return \array_key_exists($field, $this->sanitizedData);
-        }
-
-        return ($this->originalData[$field] ?? null) !== ($this->sanitizedData[$field] ?? null);
+        return DataPath::value($this->original, $field) !== DataPath::value($this->sanitized, $field);
     }
 
-    /** @return list<string> */
+    /**
+     * @return list<string> the fields changes were recorded for, in the order they changed
+     */
     public function modifiedFields(): array
     {
-        $fields = [];
-        foreach ($this->sanitizedData as $field => $value) {
-            if ($this->isFieldModified($field)) {
-                $fields[] = $field;
-            }
-        }
-
-        return $fields;
+        return array_values(array_unique(array_map(static fn(FieldModification $change): string => $change->field, $this->modifications)));
     }
 
-    public function addModification(FieldModification $modification): void
-    {
-        $this->modifications[] = $modification;
-    }
-
-    public function setSanitizedValue(string $field, mixed $value): void
-    {
-        $this->sanitizedData[$field] = $value;
-    }
-
-    /** @return list<FieldModification> */
-    public function getModifications(): array
-    {
-        return $this->modifications;
-    }
-
-    /** @return list<FieldModification> */
+    /**
+     * @return list<FieldModification>
+     */
     public function modificationsFor(string $field): array
     {
-        return array_values(array_filter(
-            $this->modifications,
-            static fn (FieldModification $m): bool => $m->field === $field,
-        ));
+        return array_values(array_filter($this->modifications, static fn(FieldModification $change): bool => $change->field === $field));
     }
 
     public function modificationCount(): int
     {
-        return \count(array_filter(
-            $this->modifications,
-            static fn (FieldModification $m): bool => $m->wasModified(),
-        ));
-    }
-
-    public function merge(self $other): self
-    {
-        $merged = new self(
-            [...$this->originalData, ...$other->originalData],
-            [...$this->sanitizedData, ...$other->sanitizedData],
-        );
-
-        foreach ([...$this->modifications, ...$other->modifications] as $mod) {
-            $merged->addModification($mod);
-        }
-
-        return $merged;
+        return count($this->modifications);
     }
 }

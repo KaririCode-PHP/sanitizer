@@ -7,31 +7,40 @@ namespace KaririCode\Sanitizer\Rule\Type;
 use KaririCode\Sanitizer\Contract\SanitizationContext;
 use KaririCode\Sanitizer\Contract\SanitizationRule;
 
+// ── Rule: ToArrayRule ────────────────────────────────────────────────
+// Wraps a value in an array.
+// ─────────────────────────────────────────────────────────────────────
+
 /**
- * Wraps a non-array value into a single-element array.
+ * Returns arrays unchanged, null as an empty array, and any other value
+ * as a list of one.
  *
- * @author  Walmir Silva <walmir.silva@kariricode.org>
+ * Preconditions: none.
  *
- * @since   3.1.0 ARFA 1.3
+ * Thread-safety: stateless.
+ *
+ * Side effects: none.
+ *
+ * Example:
+ *
+ *     ['tags' => ['to_array']]
+ *
+ * References: SPEC-002 §4.
  */
 final readonly class ToArrayRule implements SanitizationRule
 {
     #[\Override]
     public function sanitize(mixed $value, SanitizationContext $context): mixed
     {
-        if (\is_array($value)) {
+        if (is_array($value)) {
             return $value;
         }
 
-        if (null === $value) {
-            return [];
-        }
-
-        return [$value];
+        return $value === null ? [] : [$value];
     }
 
     #[\Override]
-    public function getName(): string
+    public function name(): string
     {
         return 'type.to_array';
     }

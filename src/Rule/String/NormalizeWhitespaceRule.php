@@ -7,27 +7,37 @@ namespace KaririCode\Sanitizer\Rule\String;
 use KaririCode\Sanitizer\Contract\SanitizationContext;
 use KaririCode\Sanitizer\Contract\SanitizationRule;
 
+// ── Rule: NormalizeWhitespaceRule ────────────────────────────────────
+// Collapses whitespace to single spaces and trims.
+// ─────────────────────────────────────────────────────────────────────
+
 /**
- * Collapses multiple whitespace characters into a single space.
+ * Replaces every run of whitespace, Unicode spaces such as the no-break
+ * space included, with one space and trims the ends. Invalid UTF-8 bytes
+ * become "?" first, so the result is always valid UTF-8.
  *
- * @author  Walmir Silva <walmir.silva@kariricode.org>
+ * Preconditions: none; other types are returned unchanged.
  *
- * @since   3.1.0 ARFA 1.3
+ * Thread-safety: stateless.
+ *
+ * Side effects: none.
+ *
+ * Example:
+ *
+ *     ['name' => ['normalize_whitespace']]
+ *
+ * References: Unicode White_Space property; SPEC-002 §1.
  */
 final readonly class NormalizeWhitespaceRule implements SanitizationRule
 {
     #[\Override]
     public function sanitize(mixed $value, SanitizationContext $context): mixed
     {
-        if (! \is_string($value)) {
-            return $value;
-        }
-
-        return preg_replace('/\s+/', ' ', trim($value)) ?? $value;
+        return is_string($value) ? trim(preg_replace(pattern: '/\s+/u', replacement: ' ', subject: mb_scrub($value, 'UTF-8')) ?? '') : $value;
     }
 
     #[\Override]
-    public function getName(): string
+    public function name(): string
     {
         return 'string.normalize_whitespace';
     }

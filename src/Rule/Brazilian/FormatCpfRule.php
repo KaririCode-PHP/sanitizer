@@ -7,39 +7,39 @@ namespace KaririCode\Sanitizer\Rule\Brazilian;
 use KaririCode\Sanitizer\Contract\SanitizationContext;
 use KaririCode\Sanitizer\Contract\SanitizationRule;
 
+// ── Rule: FormatCpfRule ──────────────────────────────────────────────
+// Writes 11 digits as a formatted CPF.
+// ─────────────────────────────────────────────────────────────────────
+
 /**
- * Formats a CPF number: 12345678901 → 123.456.789-01.
+ * Keeps the digits of the string and, when there are exactly 11, writes
+ * them as 000.000.000-00; other strings are returned unchanged. It does
+ * not check the digits: validate with the cpf rule.
  *
- * If the input is already formatted, normalizes it.
- * If the digit count is not 11, returns as-is.
+ * Preconditions: none; other types are returned unchanged.
  *
- * @author  Walmir Silva <walmir.silva@kariricode.org>
+ * Thread-safety: stateless.
  *
- * @since   3.1.0 ARFA 1.3
+ * Side effects: none.
+ *
+ * Example:
+ *
+ *     ['cpf' => ['format_cpf']]
+ *
+ * References: Receita Federal do Brasil, CPF; SPEC-002 §7.
  */
 final readonly class FormatCpfRule implements SanitizationRule
 {
     #[\Override]
     public function sanitize(mixed $value, SanitizationContext $context): mixed
     {
-        if (! \is_string($value)) {
-            return $value;
-        }
+        $digits = is_string($value) ? preg_replace(pattern: '/\D/', replacement: '', subject: $value) ?? '' : '';
 
-        $digits = preg_replace('/\D/', '', $value) ?? '';
-
-        if (11 !== \strlen($digits)) {
-            return $value;
-        }
-
-        return substr($digits, 0, 3) . '.'
-            . substr($digits, 3, 3) . '.'
-            . substr($digits, 6, 3) . '-'
-            . substr($digits, 9, 2);
+        return strlen($digits) === 11 ? vsprintf('%s%s%s.%s%s%s.%s%s%s-%s%s', str_split($digits)) : $value;
     }
 
     #[\Override]
-    public function getName(): string
+    public function name(): string
     {
         return 'brazilian.format_cpf';
     }

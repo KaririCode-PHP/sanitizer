@@ -7,33 +7,38 @@ namespace KaririCode\Sanitizer\Rule\Brazilian;
 use KaririCode\Sanitizer\Contract\SanitizationContext;
 use KaririCode\Sanitizer\Contract\SanitizationRule;
 
+// ── Rule: FormatCepRule ──────────────────────────────────────────────
+// Writes 8 digits as a formatted CEP.
+// ─────────────────────────────────────────────────────────────────────
+
 /**
- * Formats a CEP: 63100000 → 63100-000.
+ * Keeps the digits of the string and, when there are exactly 8, writes
+ * them as 00000-000; other strings are returned unchanged.
  *
- * @author  Walmir Silva <walmir.silva@kariricode.org>
+ * Preconditions: none; other types are returned unchanged.
  *
- * @since   3.1.0 ARFA 1.3
+ * Thread-safety: stateless.
+ *
+ * Side effects: none.
+ *
+ * Example:
+ *
+ *     ['cep' => ['format_cep']]
+ *
+ * References: Correios, CEP; SPEC-002 §7.
  */
 final readonly class FormatCepRule implements SanitizationRule
 {
     #[\Override]
     public function sanitize(mixed $value, SanitizationContext $context): mixed
     {
-        if (! \is_string($value)) {
-            return $value;
-        }
+        $digits = is_string($value) ? preg_replace(pattern: '/\D/', replacement: '', subject: $value) ?? '' : '';
 
-        $digits = preg_replace('/\D/', '', $value) ?? '';
-
-        if (8 !== \strlen($digits)) {
-            return $value;
-        }
-
-        return substr($digits, 0, 5) . '-' . substr($digits, 5, 3);
+        return strlen($digits) === 8 ? vsprintf('%s%s%s%s%s-%s%s%s', str_split($digits)) : $value;
     }
 
     #[\Override]
-    public function getName(): string
+    public function name(): string
     {
         return 'brazilian.format_cep';
     }

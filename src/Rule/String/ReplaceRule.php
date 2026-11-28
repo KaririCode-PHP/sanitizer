@@ -6,38 +6,45 @@ namespace KaririCode\Sanitizer\Rule\String;
 
 use KaririCode\Sanitizer\Contract\SanitizationContext;
 use KaririCode\Sanitizer\Contract\SanitizationRule;
+use KaririCode\Sanitizer\Exception\InvalidRuleException;
+
+// ── Rule: ReplaceRule ────────────────────────────────────────────────
+// Replaces every occurrence of a substring.
+// ─────────────────────────────────────────────────────────────────────
 
 /**
- * Simple string search-and-replace.
+ * Replaces each occurrence of 'search' with 'replace' (the empty string
+ * unless set), case-sensitively.
  *
- * Parameters: search (string), replace (string, default '').
+ * Preconditions: 'search' is a non-empty string; 'replace', when given, is a string.
  *
- * @author  Walmir Silva <walmir.silva@kariricode.org>
+ * Thread-safety: stateless.
  *
- * @since   3.1.0 ARFA 1.3
+ * Side effects: none.
+ *
+ * Example:
+ *
+ *     ['phone' => [['replace', ['search' => ' ', 'replace' => '']]]]
+ *
+ * References: PHP str_replace(); SPEC-002 §1.
  */
 final readonly class ReplaceRule implements SanitizationRule
 {
     #[\Override]
     public function sanitize(mixed $value, SanitizationContext $context): mixed
     {
-        if (! \is_string($value)) {
-            return $value;
+        $search = $context->stringParameter('search');
+        $replace = $context->stringParameter('replace', '');
+
+        if ($search === '') {
+            throw InvalidRuleException::invalidParameter(field: $context->field, parameter: 'search', expected: 'a non-empty string');
         }
 
-        $searchRaw = $context->getParameter('search', '');
-        if (! \is_string($searchRaw) || '' === $searchRaw) {
-            return $value;
-        }
-
-        $replaceRaw = $context->getParameter('replace', '');
-        $replace = \is_string($replaceRaw) ? $replaceRaw : '';
-
-        return str_replace($searchRaw, $replace, $value);
+        return is_string($value) ? str_replace(search: $search, replace: $replace, subject: $value) : $value;
     }
 
     #[\Override]
-    public function getName(): string
+    public function name(): string
     {
         return 'string.replace';
     }

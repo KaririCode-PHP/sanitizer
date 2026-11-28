@@ -7,25 +7,35 @@ namespace KaririCode\Sanitizer\Rule\String;
 use KaririCode\Sanitizer\Contract\SanitizationContext;
 use KaririCode\Sanitizer\Contract\SanitizationRule;
 
+// ── Rule: NormalizeLineEndingsRule ───────────────────────────────────
+// Converts line endings to LF.
+// ─────────────────────────────────────────────────────────────────────
+
 /**
- * Normalizes line endings to Unix LF.
+ * Turns Windows (CRLF) and old Mac (CR) line endings into LF.
  *
- * @author  Walmir Silva <walmir.silva@kariricode.org>
+ * Preconditions: none; other types are returned unchanged.
  *
- * @since   3.1.0 ARFA 1.3
+ * Thread-safety: stateless.
+ *
+ * Side effects: none.
+ *
+ * Example:
+ *
+ *     ['message' => ['normalize_line_endings']]
+ *
+ * References: SPEC-002 §1.
  */
 final readonly class NormalizeLineEndingsRule implements SanitizationRule
 {
     #[\Override]
     public function sanitize(mixed $value, SanitizationContext $context): mixed
     {
-        return \is_string($value)
-            ? str_replace(["\r\n", "\r"], "\n", $value)
-            : $value;
+        return is_string($value) ? str_replace(search: ["\r\n", "\r"], replace: "\n", subject: $value) : $value;
     }
 
     #[\Override]
-    public function getName(): string
+    public function name(): string
     {
         return 'string.normalize_line_endings';
     }

@@ -6,43 +6,52 @@ namespace KaririCode\Sanitizer\Rule\String;
 
 use KaririCode\Sanitizer\Contract\SanitizationContext;
 use KaririCode\Sanitizer\Contract\SanitizationRule;
+use KaririCode\Sanitizer\Exception\InvalidRuleException;
+
+// ── Rule: PadRule ────────────────────────────────────────────────────
+// Pads a string to a length, in characters.
+// ─────────────────────────────────────────────────────────────────────
 
 /**
- * Pads a string to a given length.
+ * Pads to 'length' characters (UTF-8) with 'pad' (a space unless set) on
+ * the 'side' given: right (the default), left or both. Strings already
+ * that long are left as they are.
  *
- * Parameters: length (int), pad (string, default ' '), side ('left'|'right'|'both', default 'right').
+ * Preconditions: 'length' is an integer; 'pad' is a non-empty string; 'side' is left, right or both.
  *
- * @author  Walmir Silva <walmir.silva@kariricode.org>
+ * Thread-safety: stateless.
  *
- * @since   3.1.0 ARFA 1.3
+ * Side effects: none.
+ *
+ * Example:
+ *
+ *     ['code' => [['pad', ['length' => 6, 'pad' => '0', 'side' => 'left']]]]
+ *
+ * References: PHP mb_str_pad(); SPEC-002 §1.
  */
 final readonly class PadRule implements SanitizationRule
 {
     #[\Override]
     public function sanitize(mixed $value, SanitizationContext $context): mixed
     {
-        if (! \is_string($value)) {
-            return $value;
-        }
-
-        $lengthRaw = $context->getParameter('length', 0);
-        $length = \is_int($lengthRaw) ? $lengthRaw : 0;
-        $padRaw = $context->getParameter('pad', ' ');
-        $pad = \is_string($padRaw) ? $padRaw : ' ';
-        $sideRaw = $context->getParameter('side', 'right');
-        $side = \is_string($sideRaw) ? $sideRaw : 'right';
-
-        $padType = match ($side) {
+        $length = $context->intParameter('length');
+        $pad = $context->stringParameter('pad', ' ');
+        $side = match ($context->stringParameter('side', 'right')) {
+            'right' => STR_PAD_RIGHT,
             'left' => STR_PAD_LEFT,
             'both' => STR_PAD_BOTH,
-            default => STR_PAD_RIGHT,
+            default => throw InvalidRuleException::invalidParameter(field: $context->field, parameter: 'side', expected: 'left, right or both'),
         };
 
-        return str_pad($value, $length, $pad, $padType);
+        if ($pad === '') {
+            throw InvalidRuleException::invalidParameter(field: $context->field, parameter: 'pad', expected: 'a non-empty string');
+        }
+
+        return is_string($value) ? mb_str_pad(string: $value, length: $length, pad_string: $pad, pad_type: $side, encoding: 'UTF-8') : $value;
     }
 
     #[\Override]
-    public function getName(): string
+    public function name(): string
     {
         return 'string.pad';
     }

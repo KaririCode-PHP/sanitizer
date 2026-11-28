@@ -4,29 +4,43 @@ declare(strict_types=1);
 
 namespace KaririCode\Sanitizer\Contract;
 
+// ── Contract: SanitizationRule ───────────────────────────────────────
+// One transformation that makes a value safer or cleaner.
+// ─────────────────────────────────────────────────────────────────────
+
 /**
- * Core sanitization rule contract.
+ * Returns the value made clean (trimmed, encoded, converted, formatted)
+ * and names itself for the record of changes. A rule returns values it
+ * does not handle unchanged instead of throwing, so rules chain safely;
+ * it never fails because of the input. Rules hold no state between
+ * calls: whatever varies per use comes in the context's parameters.
  *
- * Each rule transforms a value deterministically. Rules are stateless
- * and receive parameters via SanitizationContext.
+ * Preconditions: sanitize() receives any value, including null.
  *
- * Unlike ValidationRule (which returns bool), SanitizationRule returns
- * the transformed value — the sanitized output.
+ * Thread-safety: implementations must be stateless.
  *
- * @author  Walmir Silva <walmir.silva@kariricode.org>
+ * Side effects: none.
  *
- * @since   3.1.0 ARFA 1.3
+ * Example:
+ *
+ *     final readonly class CollapseDashesRule implements SanitizationRule
+ *     {
+ *         public function sanitize(mixed $value, SanitizationContext $context): mixed
+ *         {
+ *             return is_string($value) ? preg_replace(pattern: '/-{2,}/', replacement: '-', subject: $value) ?? '' : $value;
+ *         }
+ *
+ *         public function name(): string
+ *         {
+ *             return 'custom.collapse_dashes';
+ *         }
+ *     }
+ *
+ * References: ADR-001; SPEC-001 §3.
  */
 interface SanitizationRule
 {
-    /**
-     * Sanitize a value and return the cleaned result.
-     *
-     * Must be pure: same input + context → same output.
-     * Must NOT throw exceptions for invalid input — return value as-is.
-     */
     public function sanitize(mixed $value, SanitizationContext $context): mixed;
 
-    /** Rule identifier for registry and logging. */
-    public function getName(): string;
+    public function name(): string;
 }

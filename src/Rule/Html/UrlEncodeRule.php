@@ -7,32 +7,42 @@ namespace KaririCode\Sanitizer\Rule\Html;
 use KaririCode\Sanitizer\Contract\SanitizationContext;
 use KaririCode\Sanitizer\Contract\SanitizationRule;
 
+// ── Rule: UrlEncodeRule ──────────────────────────────────────────────
+// Percent-encodes a string for a URL.
+// ─────────────────────────────────────────────────────────────────────
+
 /**
- * URL-encodes a string value.
+ * Encodes for a query string (urlencode(), spaces as +), or for a path
+ * segment with 'raw' true (rawurlencode(), RFC 3986, spaces as %20).
  *
- * Parameters: raw (bool, default false). If true, uses rawurlencode (RFC 3986).
+ * Preconditions: 'raw', when given, is a boolean.
  *
- * @author  Walmir Silva <walmir.silva@kariricode.org>
+ * Thread-safety: stateless.
  *
- * @since   3.1.0 ARFA 1.3
+ * Side effects: none.
+ *
+ * Example:
+ *
+ *     ['q' => ['url_encode'], 'segment' => [['url_encode', ['raw' => true]]]]
+ *
+ * References: RFC 3986 §2.1; PHP urlencode(), rawurlencode(); SPEC-002 §2.
  */
 final readonly class UrlEncodeRule implements SanitizationRule
 {
     #[\Override]
     public function sanitize(mixed $value, SanitizationContext $context): mixed
     {
-        if (! \is_string($value)) {
+        $raw = $context->boolParameter('raw', false);
+
+        if (!is_string($value)) {
             return $value;
         }
-
-        $rawParam = $context->getParameter('raw', false);
-        $raw = \is_bool($rawParam) ? $rawParam : (bool) $rawParam;
 
         return $raw ? rawurlencode($value) : urlencode($value);
     }
 
     #[\Override]
-    public function getName(): string
+    public function name(): string
     {
         return 'html.url_encode';
     }

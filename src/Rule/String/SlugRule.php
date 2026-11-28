@@ -7,60 +7,110 @@ namespace KaririCode\Sanitizer\Rule\String;
 use KaririCode\Sanitizer\Contract\SanitizationContext;
 use KaririCode\Sanitizer\Contract\SanitizationRule;
 
+// ── Rule: SlugRule ───────────────────────────────────────────────────
+// Turns a string into a lower-case URL slug.
+// ─────────────────────────────────────────────────────────────────────
+
 /**
- * Converts a string to a URL-safe slug.
+ * Lower-cases the string, transliterates the Latin letters with
+ * diacritics of the European languages (á → a, ç → c, ß → ss, ł → l),
+ * then joins the runs of ASCII letters and digits with the
+ * 'separator' ("-" unless set). Letters of other scripts are dropped.
  *
- * Transliterates common accented characters, lowercases,
- * replaces non-alphanumeric with hyphens, collapses multiple hyphens.
+ * Preconditions: 'separator', when given, is a string; it is inserted literally.
  *
- * @author  Walmir Silva <walmir.silva@kariricode.org>
+ * Thread-safety: stateless.
  *
- * @since   3.1.0 ARFA 1.3
+ * Side effects: none.
+ *
+ * Example:
+ *
+ *     ['slug' => ['slug']]; // 'São Paulo, Brasil!' → 'sao-paulo-brasil'
+ *
+ * References: SPEC-002 §1.
  */
 final readonly class SlugRule implements SanitizationRule
 {
     #[\Override]
     public function sanitize(mixed $value, SanitizationContext $context): mixed
     {
-        if (! \is_string($value)) {
+        $separator = $context->stringParameter('separator', '-');
+
+        if (!is_string($value)) {
             return $value;
         }
 
-        $separatorRaw = $context->getParameter('separator', '-');
-        $separator = \is_string($separatorRaw) ? $separatorRaw : '-';
+        $words = preg_split(pattern: '/[^a-z0-9]+/', subject: strtr(mb_strtolower($value, 'UTF-8'), self::TRANSLITERATION), flags: PREG_SPLIT_NO_EMPTY);
 
-        // Transliterate common accented characters
-        $slug = $this->transliterate($value);
-        $slug = mb_strtolower($slug, 'UTF-8');
-        $slug = preg_replace('/[^a-z0-9]+/', $separator, $slug) ?? $slug;
-        $slug = trim($slug, $separator);
-
-        return $slug;
+        return implode($separator, $words === false ? [] : $words);
     }
 
     #[\Override]
-    public function getName(): string
+    public function name(): string
     {
         return 'string.slug';
     }
 
-    private function transliterate(string $value): string
-    {
-        $map = [
-            'á' => 'a', 'à' => 'a', 'ã' => 'a', 'â' => 'a', 'ä' => 'a',
-            'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e',
-            'í' => 'i', 'ì' => 'i', 'î' => 'i', 'ï' => 'i',
-            'ó' => 'o', 'ò' => 'o', 'õ' => 'o', 'ô' => 'o', 'ö' => 'o',
-            'ú' => 'u', 'ù' => 'u', 'û' => 'u', 'ü' => 'u',
-            'ç' => 'c', 'ñ' => 'n', 'ß' => 'ss',
-            'Á' => 'A', 'À' => 'A', 'Ã' => 'A', 'Â' => 'A', 'Ä' => 'A',
-            'É' => 'E', 'È' => 'E', 'Ê' => 'E', 'Ë' => 'E',
-            'Í' => 'I', 'Ì' => 'I', 'Î' => 'I', 'Ï' => 'I',
-            'Ó' => 'O', 'Ò' => 'O', 'Õ' => 'O', 'Ô' => 'O', 'Ö' => 'O',
-            'Ú' => 'U', 'Ù' => 'U', 'Û' => 'U', 'Ü' => 'U',
-            'Ç' => 'C', 'Ñ' => 'N',
-        ];
-
-        return strtr($value, $map);
-    }
+    /** @var array<string, string> lower-case letter => ASCII */
+    private const array TRANSLITERATION = [
+        'á' => 'a',
+        'à' => 'a',
+        'ã' => 'a',
+        'â' => 'a',
+        'ä' => 'a',
+        'å' => 'a',
+        'ą' => 'a',
+        'ă' => 'a',
+        'æ' => 'ae',
+        'ç' => 'c',
+        'ć' => 'c',
+        'č' => 'c',
+        'ď' => 'd',
+        'đ' => 'd',
+        'ð' => 'd',
+        'é' => 'e',
+        'è' => 'e',
+        'ê' => 'e',
+        'ë' => 'e',
+        'ę' => 'e',
+        'ě' => 'e',
+        'ğ' => 'g',
+        'í' => 'i',
+        'ì' => 'i',
+        'î' => 'i',
+        'ï' => 'i',
+        'ı' => 'i',
+        'ł' => 'l',
+        'ľ' => 'l',
+        'ñ' => 'n',
+        'ń' => 'n',
+        'ň' => 'n',
+        'ó' => 'o',
+        'ò' => 'o',
+        'õ' => 'o',
+        'ô' => 'o',
+        'ö' => 'o',
+        'ø' => 'o',
+        'ő' => 'o',
+        'œ' => 'oe',
+        'ř' => 'r',
+        'ś' => 's',
+        'š' => 's',
+        'ş' => 's',
+        'ß' => 'ss',
+        'ť' => 't',
+        'ţ' => 't',
+        'þ' => 'th',
+        'ú' => 'u',
+        'ù' => 'u',
+        'û' => 'u',
+        'ü' => 'u',
+        'ů' => 'u',
+        'ű' => 'u',
+        'ý' => 'y',
+        'ÿ' => 'y',
+        'ź' => 'z',
+        'ż' => 'z',
+        'ž' => 'z',
+    ];
 }

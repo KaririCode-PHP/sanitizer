@@ -6,32 +6,39 @@ namespace KaririCode\Sanitizer\Rule\Type;
 
 use KaririCode\Sanitizer\Contract\SanitizationContext;
 use KaririCode\Sanitizer\Contract\SanitizationRule;
+use Stringable;
+
+// ── Rule: ToStringRule ───────────────────────────────────────────────
+// Converts scalars and Stringable objects to a string.
+// ─────────────────────────────────────────────────────────────────────
 
 /**
- * Casts scalars to string. Non-scalar values return as-is.
+ * Converts integers, floats and booleans ("1" and "") with PHP's string
+ * conversion, and objects implementing Stringable with __toString().
+ * Strings, arrays, null and other objects are returned unchanged.
  *
- * @author  Walmir Silva <walmir.silva@kariricode.org>
+ * Preconditions: none.
  *
- * @since   3.1.0 ARFA 1.3
+ * Thread-safety: stateless.
+ *
+ * Side effects: none.
+ *
+ * Example:
+ *
+ *     ['zip' => ['to_string']]
+ *
+ * References: PHP Stringable; SPEC-002 §4.
  */
 final readonly class ToStringRule implements SanitizationRule
 {
     #[\Override]
     public function sanitize(mixed $value, SanitizationContext $context): mixed
     {
-        if (\is_string($value)) {
-            return $value;
-        }
-
-        if (\is_scalar($value) || (\is_object($value) && method_exists($value, '__toString'))) {
-            return (string) $value;
-        }
-
-        return $value;
+        return is_scalar($value) || $value instanceof Stringable ? (string) $value : $value;
     }
 
     #[\Override]
-    public function getName(): string
+    public function name(): string
     {
         return 'type.to_string';
     }

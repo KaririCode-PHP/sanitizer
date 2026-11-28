@@ -7,30 +7,39 @@ namespace KaririCode\Sanitizer\Rule\String;
 use KaririCode\Sanitizer\Contract\SanitizationContext;
 use KaririCode\Sanitizer\Contract\SanitizationRule;
 
+// ── Rule: TrimRule ───────────────────────────────────────────────────
+// Removes characters from both ends of a string.
+// ─────────────────────────────────────────────────────────────────────
+
 /**
- * Trims leading and trailing characters from a string.
+ * Trims whitespace (space, tab, line feed, carriage return, NUL,
+ * vertical tab) or the 'characters' given, with PHP's trim() syntax
+ * ("a..z" ranges included).
  *
- * @author  Walmir Silva <walmir.silva@kariricode.org>
+ * Preconditions: 'characters', when given, is a string.
  *
- * @since   3.1.0 ARFA 1.3
+ * Thread-safety: stateless.
+ *
+ * Side effects: none.
+ *
+ * Example:
+ *
+ *     ['email' => ['trim'], 'code' => [['trim', ['characters' => '0']]]]
+ *
+ * References: PHP trim(); SPEC-002 §1.
  */
 final readonly class TrimRule implements SanitizationRule
 {
     #[\Override]
     public function sanitize(mixed $value, SanitizationContext $context): mixed
     {
-        if (! \is_string($value)) {
-            return $value;
-        }
+        $characters = $context->stringParameter('characters', " \t\n\r\0\x0B");
 
-        $characters = $context->getParameter('characters', " \t\n\r\0\x0B");
-        $characters = \is_string($characters) ? $characters : " \t\n\r\0\x0B";
-
-        return trim($value, $characters);
+        return is_string($value) ? trim($value, $characters) : $value;
     }
 
     #[\Override]
-    public function getName(): string
+    public function name(): string
     {
         return 'string.trim';
     }

@@ -7,30 +7,39 @@ namespace KaririCode\Sanitizer\Rule\Filter;
 use KaririCode\Sanitizer\Contract\SanitizationContext;
 use KaririCode\Sanitizer\Contract\SanitizationRule;
 
+// ── Rule: EmailFilterRule ────────────────────────────────────────────
+// Trims, lower-cases and filters an email address.
+// ─────────────────────────────────────────────────────────────────────
+
 /**
- * Sanitizes an email address: trims, lowercases, removes illegal chars.
+ * Lower-cases (the mailbox part too, as most providers treat it) and
+ * removes the characters FILTER_SANITIZE_EMAIL removes: whitespace,
+ * anywhere, and everything outside printable ASCII, so "josé@x.com"
+ * becomes "jos@x.com". The result is not checked: validate it with the
+ * email rule, and keep internationalized addresses away from this rule.
  *
- * @author  Walmir Silva <walmir.silva@kariricode.org>
+ * Preconditions: none; other types are returned unchanged.
  *
- * @since   3.1.0 ARFA 1.3
+ * Thread-safety: stateless.
+ *
+ * Side effects: none.
+ *
+ * Example:
+ *
+ *     ['email' => ['email_filter']]
+ *
+ * References: PHP FILTER_SANITIZE_EMAIL; RFC 5321 §2.4; SPEC-002 §6.
  */
 final readonly class EmailFilterRule implements SanitizationRule
 {
     #[\Override]
     public function sanitize(mixed $value, SanitizationContext $context): mixed
     {
-        if (! \is_string($value)) {
-            return $value;
-        }
-
-        $value = mb_strtolower(trim($value), 'UTF-8');
-
-        /** @psalm-suppress RedundantCast — PHPStan needs (string) cast; Psalm disagrees on return type */
-        return (string) filter_var($value, FILTER_SANITIZE_EMAIL);
+        return is_string($value) ? filter_var(strtolower($value), FILTER_SANITIZE_EMAIL) : $value;
     }
 
     #[\Override]
-    public function getName(): string
+    public function name(): string
     {
         return 'filter.email';
     }
