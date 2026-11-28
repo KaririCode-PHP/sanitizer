@@ -1,22 +1,25 @@
 # QD-V433-COMPLIANCE: kariricode/sanitizer 2.0.0
 
-- **Status: PENDING** (automated gates)
+- **Status: PASS** (automated gates)
 - **Date:** 2026-11-28
 - **Component:** kariricode/sanitizer 2.0.0; kariricode/contract ^2.12 (2.12.1 locked), kariricode/exception ^2.0.2 (2.0.2 locked); kariricode/property-inspector ^3.0 suggested
 - **Standards:** KaririCode Spec V4.3.3 §29 (gates) and §32 (supply chain); ARFA 1.3 level 1 (Structural); OWASP ASVS 5.0 level 2
 - **Authors:** Walmir Silva <walmir.silva@kariricode.org>
 
-Every automated gate of §29.1 passes locally (§1); the status turns PASS
-when CI confirms them on the pushed commit, and FAIL if a gate fails.
-PASS covers the automated gates (G1, G4, G5, G6); G3 needs a second
-reviewer (§8). No score is assigned (E-006). This is the first quality
+Every automated gate of §29.1 passes, locally (§1) and in CI: run
+[46157329758](https://github.com/KaririCode-PHP/sanitizer/actions/runs/46157329758)
+passed the gates on PHP 8.4.28 and the suites on PHP 8.5.13 with the
+lowest dependencies (kariricode/contract 2.12.0, kariricode/exception
+2.0.2), at `3c066b0`. The status turns FAIL if a gate fails. PASS covers
+the automated gates (G1, G4, G5, G6); G3 needs a second reviewer (§8). No score is assigned (E-006). This is the first quality
 record of the 2.x line: measured with this release's configurations,
 the September 2026 tarball had 38 PHPStan errors at level max and 108
 Psalm errors at level 1, with no mutation testing.
 
 ## 1. Gates (Spec V4.3.3 §29.1)
 
-Measured locally on 2026-11-28 (§2).
+Measured locally on 2026-11-28 (§2). CI reported the same tests (351,
+3,921 assertions) and the same mutants (521: 519 killed, 2 escaped).
 
 | Gate | Command | Budget | Measured | Result |
 |---|---|---|---|---|
